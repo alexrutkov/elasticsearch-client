@@ -1,0 +1,31 @@
+<idea-plugin>
+    <id>dev.esplugin.elasticsearch</id>
+    <name>Elasticsearch Client</name>
+    <vendor url="https://github.com/">Local build</vendor>
+
+    <description><![CDATA[
+    <p>Connect to Elasticsearch or OpenSearch clusters from IntelliJ IDEA.</p>
+    <ul>
+        <li>Multiple connections with Basic, API key and Bearer authentication</li>
+        <li>Browse indices, aliases, data streams and nodes</li>
+        <li>Cluster health and connection diagnostics</li>
+    </ul>
+    <p>Open source plugin built with the IntelliJ Platform SDK.</p>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="Elasticsearch"
+                    anchor="right"
+                    icon="dev.esplugin.icons.Icons.ELASTICSEARCH"
+                    factoryClass="dev.esplugin.ui.EsToolWindowFactory"/>
+
+        <applicationConfigurable parentId="tools"
+                                 instance="dev.esplugin.settings.ConnectionsConfigurable"
+                                 id="dev.esplugin.settings.connections"
+                                 displayName="Elasticsearch Client"/>
+
+        <notificationGroup id="Elasticsearch Client" displayType="BALLOON"/>
+    </extensions>
+</idea-plugin>
