@@ -14,6 +14,12 @@
     ]]></description>
 
     <change-notes><![CDATA[
+    <h3>0.6.0</h3>
+    <ul>
+        <li>JSON syntax highlighting in the console request editor, using the IDE color scheme.</li>
+        <li>Line numbers and indent guides; Enter keeps the current indentation and indents inside JSON braces.</li>
+        <li>A Format button pretty-prints the body; request bodies are pretty-printed when a tab opens.</li>
+    </ul>
     <h3>0.5.0</h3>
     <ul>
         <li>REST console opens in an editor tab with a request editor and a response pane.</li>

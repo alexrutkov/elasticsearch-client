@@ -14,6 +14,8 @@ IntelliJ Platform SDK. It is not affiliated with Elastic or with any commercial 
 - Cluster health indicator (green / yellow / red).
 - REST console in an editor tab: request DSL (`METHOD /path`, optional headers, JSON body),
   Ctrl+Enter, formatted JSON response, Save / Save Query.
+- JSON syntax highlighting using the IDE color scheme, line numbers, indent guides,
+  auto-indent on Enter and a Format button for the request body.
 - Save consoles, save query bodies, request history (last 100 per connection);
   the tree updates immediately after saving or executing.
 - Data browser in an editor tab: double-click an index or alias, or use the context menu.
@@ -48,7 +50,7 @@ Build the installable zip:
 .\gradlew.bat buildPlugin
 ```
 
-The result is `build/distributions/elasticsearch-client-0.5.0.zip`.
+The result is `build/distributions/elasticsearch-client-0.6.0.zip`.
 Install it with `Settings | Plugins | Install Plugin from Disk...`.
 
 Run a sandbox IDE with the plugin:

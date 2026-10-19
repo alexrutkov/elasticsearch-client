@@ -2,15 +2,18 @@ package dev.esplugin.console
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
+import com.intellij.openapi.editor.ex.EditorEx
+import com.intellij.openapi.editor.highlighter.EditorHighlighterFactory
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorState
 import com.intellij.openapi.fileEditor.FileEditorStateLevel
 import com.intellij.openapi.fileTypes.PlainTextFileType
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
+import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.util.UserDataHolderBase
-import com.intellij.ui.EditorTextField
 import com.intellij.ui.OnePixelSplitter
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
@@ -39,14 +42,10 @@ class ConsoleEditor(
     private val file: ConsoleVirtualFile,
 ) : UserDataHolderBase(), FileEditor {
 
-    private val document = EditorFactory.getInstance().createDocument(ConsoleRequestParser.format(file.initial))
-    private val requestEditor = EditorTextField(
-        document,
-        project,
-        PlainTextFileType.INSTANCE,
-        false,
-        false,
-    )
+    private val document = EditorFactory.getInstance()
+        .createDocument(ConsoleRequestParser.format(file.initial))
+    private val requestEditor: Editor = EditorFactory.getInstance()
+        .createEditor(document, project, PlainTextFileType.INSTANCE, false)
     private val responseArea = JBTextArea().apply {
         isEditable = false
         lineWrap = false
@@ -55,6 +54,7 @@ class ConsoleEditor(
     }
     private val statusLabel = JBLabel("Ready")
     private val executeButton = JButton("Execute")
+    private val formatButton = JButton("Format")
     private val saveButton = JButton("Save")
     private val saveQueryButton = JButton("Save Query")
     private val splitter = OnePixelSplitter(false, 0.45f)
@@ -64,7 +64,11 @@ class ConsoleEditor(
     private var disposed = false
 
     init {
-        requestEditor.setOneLineMode(false)
+        installHighlighter()
+        requestEditor.settings.isLineNumbersShown = true
+        requestEditor.settings.isIndentGuidesShown = true
+        installEnterHandler()
+
         rootPanel.registerKeyboardAction(
             object : AbstractAction() {
                 override fun actionPerformed(event: ActionEvent) {
@@ -76,17 +80,19 @@ class ConsoleEditor(
         )
 
         executeButton.addActionListener { execute() }
+        formatButton.addActionListener { formatRequest() }
         saveButton.addActionListener { saveConsole() }
         saveQueryButton.addActionListener { saveQuery() }
 
         val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
             add(executeButton)
+            add(formatButton)
             add(saveButton)
             add(saveQueryButton)
             add(statusLabel)
         }
         val requestPanel = JPanel(BorderLayout()).apply {
-            add(requestEditor, BorderLayout.CENTER)
+            add(requestEditor.component, BorderLayout.CENTER)
         }
         val responsePanel = JPanel(BorderLayout()).apply {
             add(JBScrollPane(responseArea), BorderLayout.CENTER)
@@ -98,6 +104,64 @@ class ConsoleEditor(
         rootPanel.add(toolbar, BorderLayout.NORTH)
         rootPanel.add(splitter, BorderLayout.CENTER)
         rootPanel.preferredSize = Dimension(1100, 650)
+    }
+
+    private fun installHighlighter() {
+        val highlighter = EditorHighlighterFactory.getInstance()
+            .createEditorHighlighter(ConsoleSyntaxHighlighter(), requestEditor.colorsScheme)
+        (requestEditor as EditorEx).setHighlighter(highlighter)
+    }
+
+    private fun installEnterHandler() {
+        val enter = object : AbstractAction() {
+            override fun actionPerformed(event: ActionEvent) {
+                insertNewlineWithIndent()
+            }
+        }
+        requestEditor.contentComponent.inputMap.put(KeyStroke.getKeyStroke("ENTER"), "es-console-enter")
+        requestEditor.contentComponent.actionMap.put("es-console-enter", enter)
+    }
+
+    private fun insertNewlineWithIndent() {
+        val caret = requestEditor.caretModel.offset
+        val line = document.getLineNumber(caret)
+        val lineStart = document.getLineStartOffset(line)
+        val before = document.getText(TextRange(lineStart, caret))
+        val indent = before.takeWhile { it == ' ' || it == '\t' }
+        val trimmed = before.trimEnd()
+        val next = if (caret < document.textLength) document.charsSequence[caret] else null
+
+        val extra = when {
+            trimmed.endsWith("{") || trimmed.endsWith("[") -> 2
+            next == '}' || next == ']' -> -2
+            else -> 0
+        }
+        val newIndent = (indent.length + extra).coerceAtLeast(0)
+        val inserted = "\n" + " ".repeat(newIndent)
+
+        ApplicationManager.getApplication().runWriteAction {
+            document.insertString(caret, inserted)
+            requestEditor.caretModel.moveToOffset(caret + inserted.length)
+        }
+    }
+
+    private fun formatRequest() {
+        val request = ConsoleRequestParser.parse(document.text)
+        if (request == null) {
+            statusLabel.text = "Cannot parse request"
+            return
+        }
+        if (!ConsoleRequestParser.isJson(request.body)) {
+            statusLabel.text = "Body is not valid JSON"
+            return
+        }
+
+        val formatted = ConsoleRequestParser.format(
+            request.copy(body = ConsoleRequestParser.prettyBody(request.body)),
+        )
+        document.setText(formatted)
+        requestEditor.caretModel.moveToOffset(0)
+        statusLabel.text = "Formatted"
     }
 
     private fun execute() {
@@ -264,7 +328,7 @@ class ConsoleEditor(
 
     override fun getComponent(): JComponent = rootPanel
 
-    override fun getPreferredFocusedComponent(): JComponent = requestEditor
+    override fun getPreferredFocusedComponent(): JComponent = requestEditor.contentComponent
 
     override fun getName(): String = "Console"
 
@@ -285,6 +349,8 @@ class ConsoleEditor(
     override fun removePropertyChangeListener(listener: PropertyChangeListener) = Unit
 
     override fun dispose() {
+        if (disposed) return
         disposed = true
+        EditorFactory.getInstance().releaseEditor(requestEditor)
     }
 }

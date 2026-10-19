@@ -91,6 +91,37 @@ class ConsoleRequestParserTest {
         assertEquals("POST", parsed?.method)
         assertEquals("/index/_search", parsed?.path)
         assertEquals("application/json", parsed?.headers?.get("Content-Type"))
-        assertEquals(saved.body, parsed?.body)
+        assertEquals(
+            """
+            {
+              "query": {
+                "match_all": {}
+              }
+            }
+            """.trimIndent(),
+            parsed?.body,
+        )
+    }
+
+    @Test
+    fun `pretty prints a compact json body`() {
+        val pretty = ConsoleRequestParser.prettyBody("""{"from":0,"size":50}""")
+
+        assertEquals(
+            """
+            {
+              "from": 0,
+              "size": 50
+            }
+            """.trimIndent(),
+            pretty,
+        )
+        assertEquals(true, ConsoleRequestParser.isJson(pretty))
+    }
+
+    @Test
+    fun `leaves non json bodies untouched`() {
+        assertEquals("not json", ConsoleRequestParser.prettyBody("not json"))
+        assertEquals(false, ConsoleRequestParser.isJson("not json"))
     }
 }

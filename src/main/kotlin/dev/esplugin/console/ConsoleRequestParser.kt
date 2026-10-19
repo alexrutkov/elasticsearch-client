@@ -1,5 +1,8 @@
 package dev.esplugin.console
 
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonParser
+
 data class ConsoleRequest(
     val method: String,
     val path: String,
@@ -26,13 +29,52 @@ object ConsoleRequestParser {
 
     fun format(request: SavedRequest): String {
         val headers = ConsoleUtils.withoutSecrets(request.headers).trim()
+        val body = prettyBody(request.body)
         return buildString {
             append(request.method.ifBlank { "GET" }.uppercase()).append(' ')
             append(request.path.ifBlank { "/" })
             if (headers.isNotEmpty()) append('\n').append(headers)
-            if (request.body.isNotBlank()) append('\n').append(request.body)
+            if (body.isNotBlank()) append('\n').append(body)
         }
     }
+
+    /**
+     * Pretty-prints a JSON object/array while leaving non-JSON bodies untouched.
+     */
+    fun prettyBody(body: String): String {
+        if (body.isBlank()) return body
+        return runCatching {
+            val element = JsonParser.parseString(body)
+            if (element.isJsonObject || element.isJsonArray) {
+                GsonBuilder()
+                    .setPrettyPrinting()
+                    .disableHtmlEscaping()
+                    .create()
+                    .toJson(element)
+            } else {
+                body
+            }
+        }.getOrDefault(body)
+    }
+
+    fun isJson(body: String): Boolean {
+        if (body.isBlank()) return false
+        return runCatching {
+            val element = JsonParser.parseString(body)
+            element.isJsonObject || element.isJsonArray
+        }.getOrDefault(false)
+    }
+
+    fun format(request: ConsoleRequest): String = format(
+        SavedRequest(
+            connectionId = "",
+            name = "",
+            method = request.method,
+            path = request.path,
+            headers = request.headersText,
+            body = request.body,
+        ),
+    )
 
     fun parse(text: String): ConsoleRequest? {
         val lines = text.lines()
