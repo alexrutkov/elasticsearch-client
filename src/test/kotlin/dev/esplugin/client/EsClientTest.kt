@@ -16,6 +16,10 @@ class EsClientTest {
 
     private lateinit var server: HttpServer
     private var lastAuthorization: String? = null
+    private var lastCustomHeader: String? = null
+    private var lastMethod: String? = null
+    private var lastBody: String? = null
+    private var lastQuery: String? = null
     private var unauthorized = false
 
     @BeforeEach
@@ -81,13 +85,35 @@ class EsClientTest {
         assertEquals(401, error.status)
     }
 
+    @Test
+    fun `sends console style request with headers body and query`() {
+        val response = EsClient(config(), null).request(
+            method = "POST",
+            path = "/_search?pretty=true",
+            body = """{"query":{"match_all":{}}}""",
+            query = mapOf("human" to "true"),
+            headers = mapOf("X-Test" to "yes"),
+        )
+
+        assertEquals(200, response.status)
+        assertEquals("POST", lastMethod)
+        assertEquals("yes", lastCustomHeader)
+        assertEquals("pretty=true&human=true", lastQuery)
+        assertEquals("""{"query":{"match_all":{}}}""", lastBody)
+    }
+
     private fun handle(exchange: HttpExchange) {
         lastAuthorization = exchange.requestHeaders.getFirst("Authorization")
+        lastCustomHeader = exchange.requestHeaders.getFirst("X-Test")
+        lastMethod = exchange.requestMethod
+        lastQuery = exchange.requestURI.query
+        lastBody = exchange.requestBody.readBytes().toString(Charsets.UTF_8)
         val path = exchange.requestURI.path
         val (status, body) = when {
             unauthorized && path == "/" -> 401 to """{"error":"unauthorized"}"""
             path == "/" -> 200 to """{"cluster_name":"test-cluster","version":{"number":"8.13.0"},"tagline":"You Know, for Search"}"""
             path == "/_cluster/health" -> 200 to """{"status":"green","number_of_nodes":1}"""
+            path == "/_search" -> 200 to """{"hits":{"total":0}}"""
             else -> 404 to """{"error":"not found"}"""
         }
         val bytes = body.toByteArray(Charsets.UTF_8)

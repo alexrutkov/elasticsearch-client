@@ -35,6 +35,12 @@ class EsTreeRenderer : ColoredTreeCellRenderer() {
             }
 
             is ItemNode -> {
+                icon = when (node.kind) {
+                    ItemKind.CONSOLE -> AllIcons.FileTypes.Text
+                    ItemKind.HISTORY -> AllIcons.Actions.Refresh
+                    ItemKind.QUERY -> AllIcons.Actions.Find
+                    ItemKind.PLAIN -> null
+                }
                 append(node.title, SimpleTextAttributes.REGULAR_ATTRIBUTES)
                 node.details?.takeIf { it.isNotBlank() }?.let {
                     append("  $it", SimpleTextAttributes.GRAY_ATTRIBUTES)

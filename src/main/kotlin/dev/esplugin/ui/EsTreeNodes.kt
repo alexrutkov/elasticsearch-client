@@ -11,10 +11,23 @@ class ConfigNode(val config: ConnectionConfig) : DefaultMutableTreeNode(config) 
 }
 
 enum class Category(val title: String) {
-    INDICES("Indices"),
-    ALIASES("Aliases"),
-    DATA_STREAMS("Data streams"),
-    NODES("Nodes"),
+    CONSOLES("Consoles"),
+    REQUESTS("Requests"),
+    QUERIES("Queries"),
+    INDICES("indices"),
+    ALIASES("aliases"),
+    DATA_STREAMS("data streams"),
+    NODES("nodes");
+
+    val isLocal: Boolean
+        get() = this == CONSOLES || this == REQUESTS || this == QUERIES
+}
+
+enum class ItemKind {
+    PLAIN,
+    CONSOLE,
+    HISTORY,
+    QUERY,
 }
 
 class CategoryNode(
@@ -28,6 +41,8 @@ class CategoryNode(
 class ItemNode(
     val title: String,
     val details: String? = null,
+    val kind: ItemKind = ItemKind.PLAIN,
+    val payloadId: String? = null,
 ) : DefaultMutableTreeNode(title)
 
 class InfoNode(

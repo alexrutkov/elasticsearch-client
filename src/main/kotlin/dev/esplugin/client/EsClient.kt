@@ -67,17 +67,31 @@ class EsClient(
         path: String,
         body: String? = null,
         query: Map<String, String> = emptyMap(),
+        headers: Map<String, String> = emptyMap(),
     ): EsResponse {
         val uri = buildUri(path, query)
         val builder = HttpRequest.newBuilder(uri)
             .timeout(Duration.ofSeconds(config.requestTimeoutSeconds.coerceAtLeast(1).toLong()))
             .header("Accept", "application/json")
 
-        authHeader()?.let { builder.header("Authorization", it) }
-        customHeaders().forEach { (name, value) -> builder.header(name, value) }
+        authHeader()?.let { header ->
+            if (headers.keys.none { it.equals("Authorization", ignoreCase = true) }) {
+                builder.header("Authorization", header)
+            }
+        }
+
+        val overridden = headers.keys.map { it.lowercase() }.toSet()
+        customHeaders()
+            .filterNot { it.first.lowercase() in overridden }
+            .forEach { (name, value) -> builder.header(name, value) }
+        headers.forEach { (name, value) -> builder.header(name, value) }
 
         val publisher = if (body != null) {
-            builder.header("Content-Type", "application/json")
+            val hasContentType = (customHeaders() + headers.entries.map { it.key to it.value })
+                .any { it.first.equals("Content-Type", ignoreCase = true) }
+            if (!hasContentType) {
+                builder.header("Content-Type", "application/json")
+            }
             HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)
         } else {
             HttpRequest.BodyPublishers.noBody()
@@ -184,7 +198,8 @@ class EsClient(
         val queryString = if (query.isEmpty()) {
             ""
         } else {
-            "?" + query.entries.joinToString("&") { (name, value) ->
+            val separator = if (normalizedPath.contains('?')) "&" else "?"
+            separator + query.entries.joinToString("&") { (name, value) ->
                 "${encode(name)}=${encode(value)}"
             }
         }

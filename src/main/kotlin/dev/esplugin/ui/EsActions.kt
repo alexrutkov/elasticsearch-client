@@ -42,6 +42,20 @@ class RemoveConnectionAction(private val panel: EsTreePanel) : AnAction(
     }
 }
 
+class NewConsoleAction(private val panel: EsTreePanel) : AnAction(
+    "New Console",
+    "Open a REST console for the selected connection",
+    AllIcons.Actions.Execute,
+) {
+    override fun actionPerformed(event: AnActionEvent) {
+        panel.newConsole()
+    }
+
+    override fun update(event: AnActionEvent) {
+        event.presentation.isEnabled = panel.hasSelectedConnection()
+    }
+}
+
 class RefreshConnectionsAction(private val panel: EsTreePanel) : AnAction(
     "Refresh Connections",
     "Reload connections from settings",

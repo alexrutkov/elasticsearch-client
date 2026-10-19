@@ -3,15 +3,18 @@
 Open-source Elasticsearch/OpenSearch plugin for IntelliJ IDEA, built from scratch with the
 IntelliJ Platform SDK. It is not affiliated with Elastic or with any commercial plugin.
 
-## Features (M1)
+## Features (M1 + M2)
 
 - Multiple connections: name, URL, Basic / API key / Bearer auth, custom HTTP headers.
 - Secrets are stored in the IDE credential store (`PasswordSafe`), not in XML.
 - SSL verification switch for self-signed clusters.
 - Configurable connect/request timeouts.
 - "Test Connection" button with cluster name, version and health.
-- Tool window with lazy tree: indices, aliases, data streams, nodes.
+- Tool window with lazy tree: consoles, requests, queries, indices, aliases, data streams, nodes.
 - Cluster health indicator (green / yellow / red).
+- REST console: method, path, headers, body, formatted JSON response, Ctrl+Enter.
+- Save consoles, save query bodies, request history (last 100 per connection).
+- Open an index/alias in the console from the context menu.
 - Add, edit, remove and refresh connections; settings page under
   `Settings | Tools | Elasticsearch Client`.
 
@@ -38,7 +41,7 @@ Build the installable zip:
 .\gradlew.bat buildPlugin
 ```
 
-The result is `build/distributions/elasticsearch-client-0.1.2.zip`.
+The result is `build/distributions/elasticsearch-client-0.2.0.zip`.
 Install it with `Settings | Plugins | Install Plugin from Disk...`.
 
 Run a sandbox IDE with the plugin:

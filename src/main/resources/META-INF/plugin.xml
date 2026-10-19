@@ -14,6 +14,13 @@
     ]]></description>
 
     <change-notes><![CDATA[
+    <h3>0.2.0</h3>
+    <ul>
+        <li>REST console with method, path, headers, body and formatted JSON response.</li>
+        <li>Tree categories: Consoles, Requests (history) and Queries.</li>
+        <li>Save consoles, save query bodies, browse/clear request history.</li>
+        <li>Open an index or alias in the console from the context menu.</li>
+    </ul>
     <h3>0.1.2</h3>
     <ul>
         <li>Fixed "Test Connection" staying at "Connecting..." because the modal dialog blocked the UI callback.</li>
