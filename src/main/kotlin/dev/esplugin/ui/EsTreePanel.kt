@@ -20,8 +20,10 @@ import dev.esplugin.client.EsClient
 import dev.esplugin.client.EsException
 import dev.esplugin.client.EsResponse
 import dev.esplugin.browser.DataBrowserVirtualFile
+import dev.esplugin.console.ConsoleChangeListener
+import dev.esplugin.console.ConsoleNotifier
 import dev.esplugin.console.ConsoleStore
-import dev.esplugin.console.EsConsoleDialog
+import dev.esplugin.console.ConsoleTabs
 import dev.esplugin.console.SavedRequest
 import dev.esplugin.settings.ConnectionConfig
 import dev.esplugin.settings.ConnectionDialog
@@ -43,6 +45,14 @@ import javax.swing.event.TreeWillExpandListener
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
 import javax.swing.tree.TreePath
+
+private val DEFAULT_SEARCH_BODY = """{
+  "from": 0,
+  "size": 50,
+  "query": {
+    "match_all": {}
+  }
+}"""
 
 class EsTreePanel(private val project: Project) : SimpleToolWindowPanel(true, true) {
 
@@ -72,6 +82,19 @@ class EsTreePanel(private val project: Project) : SimpleToolWindowPanel(true, tr
 
         tree.addTreeSelectionListener { toolbar.updateActionsAsync() }
         installPopupMenu()
+
+        ApplicationManager.getApplication().messageBus.connect(project).subscribe(
+            ConsoleNotifier.TOPIC,
+            object : ConsoleChangeListener {
+                override fun consoleChanged(connectionId: String) {
+                    ApplicationManager.getApplication().invokeLater({
+                        refreshCategory(connectionId, Category.CONSOLES)
+                        refreshCategory(connectionId, Category.REQUESTS)
+                        refreshCategory(connectionId, Category.QUERIES)
+                    }, ModalityState.any())
+                }
+            },
+        )
 
         tree.addTreeWillExpandListener(object : TreeWillExpandListener {
             override fun treeWillExpand(event: TreeExpansionEvent) {
@@ -179,14 +202,17 @@ class EsTreePanel(private val project: Project) : SimpleToolWindowPanel(true, tr
         config: ConnectionConfig,
         initial: SavedRequest? = null,
         editingConsoleId: String? = null,
+        title: String = "Console",
+        reuseKey: String? = null,
     ) {
-        EsConsoleDialog(
+        ConsoleTabs.open(
             project,
             config,
-            SecretStore.get(config.id),
             initial,
             editingConsoleId,
-        ) { category -> refreshCategory(config.id, category) }.show()
+            title,
+            reuseKey,
+        )
     }
 
     private fun openItem(node: ItemNode) {
@@ -196,12 +222,23 @@ class EsTreePanel(private val project: Project) : SimpleToolWindowPanel(true, tr
         when (node.kind) {
             ItemKind.CONSOLE -> {
                 val saved = store.findConsole(node.payloadId ?: return) ?: return
-                openConsole(config, saved.copy(), saved.id)
+                openConsole(
+                    config,
+                    saved.copy(),
+                    saved.id,
+                    saved.name,
+                    "saved:${saved.id}",
+                )
             }
 
             ItemKind.HISTORY -> {
                 val saved = store.findHistory(node.payloadId ?: return) ?: return
-                openConsole(config, saved.copy())
+                openConsole(
+                    config,
+                    saved.copy(),
+                    title = saved.name,
+                    reuseKey = "history:${saved.id}",
+                )
             }
 
             ItemKind.QUERY -> {
@@ -215,6 +252,8 @@ class EsTreePanel(private val project: Project) : SimpleToolWindowPanel(true, tr
                         path = query.path,
                         body = query.body,
                     ),
+                    title = query.name,
+                    reuseKey = "query:${query.id}",
                 )
             }
 
@@ -365,7 +404,10 @@ class EsTreePanel(private val project: Project) : SimpleToolWindowPanel(true, tr
                     name = index,
                     method = "GET",
                     path = "/$index/_search",
+                    body = DEFAULT_SEARCH_BODY,
                 ),
+                title = index,
+                reuseKey = "index:$index",
             )
         })
         menu.addSeparator()
@@ -421,7 +463,10 @@ class EsTreePanel(private val project: Project) : SimpleToolWindowPanel(true, tr
                     name = alias,
                     method = "GET",
                     path = "/$alias/_search",
+                    body = DEFAULT_SEARCH_BODY,
                 ),
+                title = alias,
+                reuseKey = "alias:$alias",
             )
         })
         menu.addSeparator()

@@ -14,7 +14,7 @@ import com.intellij.ui.components.JBTextField
 import com.intellij.ui.table.JBTable
 import com.intellij.util.concurrency.AppExecutorUtil
 import dev.esplugin.client.EsClient
-import dev.esplugin.console.EsConsoleDialog
+import dev.esplugin.console.ConsoleTabs
 import dev.esplugin.console.SavedRequest
 import dev.esplugin.settings.ConnectionManager
 import dev.esplugin.settings.SecretStore
@@ -218,17 +218,18 @@ class DataBrowserEditor(
 
     private fun openConsole() {
         val config = ConnectionManager.getInstance().find(file.connectionId) ?: return
-        EsConsoleDialog(
+        ConsoleTabs.open(
             project,
             config,
-            SecretStore.get(config.id),
             SavedRequest(
                 connectionId = config.id,
                 name = file.index,
                 method = "GET",
                 path = "/${file.index}/_search",
             ),
-        ).show()
+            title = file.index,
+            reuseKey = "index:${file.index}",
+        )
     }
 
     override fun getComponent(): JComponent = rootPanel
