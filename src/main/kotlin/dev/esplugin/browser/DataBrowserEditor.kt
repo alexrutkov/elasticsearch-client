@@ -8,6 +8,7 @@ import com.intellij.openapi.fileEditor.FileEditorState
 import com.intellij.openapi.fileEditor.FileEditorStateLevel
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.UserDataHolderBase
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.JBColor
@@ -243,6 +244,8 @@ class DataBrowserEditor(
     }
 
     override fun getComponent(): JComponent = rootPanel
+
+    override fun getFile(): VirtualFile = file
 
     override fun getPreferredFocusedComponent(): JComponent = filterField
 

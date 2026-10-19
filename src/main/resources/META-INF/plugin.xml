@@ -20,6 +20,11 @@
     ]]></description>
 
     <change-notes><![CDATA[
+    <h3>0.6.2</h3>
+    <ul>
+        <li>Fixed FileEditor.getFile() deprecation errors when opening console and data browser tabs.</li>
+        <li>Both editor tabs now explicitly return their virtual file.</li>
+    </ul>
     <h3>0.6.1</h3>
     <ul>
         <li>Marketplace metadata: vendor, description and plugin icon.</li>

@@ -14,6 +14,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.util.UserDataHolderBase
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.OnePixelSplitter
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.concurrency.AppExecutorUtil
@@ -333,6 +334,8 @@ class ConsoleEditor(
     }
 
     override fun getComponent(): JComponent = rootPanel
+
+    override fun getFile(): VirtualFile = file
 
     override fun getPreferredFocusedComponent(): JComponent = requestEditor.contentComponent
 
