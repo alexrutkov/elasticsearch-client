@@ -14,6 +14,13 @@
     ]]></description>
 
     <change-notes><![CDATA[
+    <h3>0.3.0</h3>
+    <ul>
+        <li>Full context menu for indices: data browser, REST console, info, stats, create, import, copy, aliases, refresh, flush, force merge, mapping, close, delete.</li>
+        <li>Context menu for aliases: data browser, REST console, alias info, delete alias.</li>
+        <li>Read-only data browser with filter, pagination and document viewer.</li>
+        <li>Manage aliases dialog for a single index.</li>
+    </ul>
     <h3>0.2.0</h3>
     <ul>
         <li>REST console with method, path, headers, body and formatted JSON response.</li>

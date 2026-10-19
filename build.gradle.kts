@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "dev.esplugin"
-version = "0.2.0"
+version = "0.3.0"
 
 val idePath = providers.gradleProperty("idePath")
     .getOrElse("C:/Users/rutkovskiy_ayu/AppData/Local/Programs/IntelliJ IDEA")

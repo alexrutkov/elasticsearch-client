@@ -1,5 +1,6 @@
 package dev.esplugin.ui
 
+import com.google.gson.Gson
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
@@ -26,11 +27,14 @@ import dev.esplugin.settings.ConnectionManager
 import dev.esplugin.settings.SecretStore
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import java.nio.file.Files
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import javax.swing.JFileChooser
 import javax.swing.JMenuItem
 import javax.swing.JPopupMenu
+import javax.swing.KeyStroke
 import javax.swing.SwingUtilities
 import javax.swing.event.TreeExpansionEvent
 import javax.swing.event.TreeWillExpandListener
@@ -276,26 +280,20 @@ class EsTreePanel(private val project: Project) : SimpleToolWindowPanel(true, tr
                 when (node) {
                     is ItemNode -> {
                         val parentCategory = (node.parent as? CategoryNode)?.category
-                        if (node.kind == ItemKind.PLAIN) {
-                            if (parentCategory == Category.INDICES || parentCategory == Category.ALIASES) {
-                                menu.add(menuItem("Open in Console") {
-                                    findConfigNode(node)?.let { configNode ->
-                                        openConsole(
-                                            configNode.config,
-                                            SavedRequest(
-                                                connectionId = configNode.config.id,
-                                                name = node.title,
-                                                method = "GET",
-                                                path = "/${node.title}/_search",
-                                            ),
-                                        )
-                                    }
-                                })
+                        when {
+                            node.kind != ItemKind.PLAIN -> {
+                                menu.add(menuItem("Open") { openItem(node) })
+                                menu.addSeparator()
+                                menu.add(menuItem("Delete") { deleteItem(node) })
                             }
-                        } else {
-                            menu.add(menuItem("Open") { openItem(node) })
-                            menu.addSeparator()
-                            menu.add(menuItem("Delete") { deleteItem(node) })
+
+                            parentCategory == Category.INDICES -> findConfigNode(node)?.let {
+                                buildIndexMenu(menu, it.config, node.title)
+                            }
+
+                            parentCategory == Category.ALIASES -> findConfigNode(node)?.let {
+                                buildAliasMenu(menu, it.config, node.title)
+                            }
                         }
                     }
 
@@ -311,6 +309,9 @@ class EsTreePanel(private val project: Project) : SimpleToolWindowPanel(true, tr
                                     refreshCategory(node.config.id, Category.REQUESTS)
                                 })
                             }
+
+                            Category.INDICES ->
+                                menu.add(menuItem("New Index...") { createIndex(node.config) })
 
                             else -> Unit
                         }
@@ -334,8 +335,345 @@ class EsTreePanel(private val project: Project) : SimpleToolWindowPanel(true, tr
         })
     }
 
-    private fun menuItem(text: String, action: () -> Unit): JMenuItem =
-        JMenuItem(text).apply { addActionListener { action() } }
+    private fun menuItem(text: String, accelerator: KeyStroke? = null, action: () -> Unit): JMenuItem =
+        JMenuItem(text).apply {
+            this.accelerator = accelerator
+            addActionListener { action() }
+        }
+
+    private fun buildIndexMenu(menu: JPopupMenu, config: ConnectionConfig, index: String) {
+        menu.add(menuItem("Open in Data Browser", KeyStroke.getKeyStroke("control DOWN")) {
+            openDataBrowser(config, index)
+        })
+        menu.add(menuItem("Open in REST Console", KeyStroke.getKeyStroke("control ENTER")) {
+            openConsole(
+                config,
+                SavedRequest(
+                    connectionId = config.id,
+                    name = index,
+                    method = "GET",
+                    path = "/$index/_search",
+                ),
+            )
+        })
+        menu.addSeparator()
+        menu.add(menuItem("Index Info") {
+            showJson(config, "Index Info — $index", "/$index")
+        })
+        menu.add(menuItem("Index Stats") {
+            showJson(config, "Index Stats — $index", "/$index/_stats")
+        })
+        menu.addSeparator()
+        menu.add(menuItem("New Index...") { createIndex(config) })
+        menu.add(menuItem("Import Data from File...") { importData(config, index) })
+        menu.add(menuItem("Copy Index to...") { copyIndex(config, index) })
+        menu.add(menuItem("Manage Aliases...") { manageAliases(config, index) })
+        menu.add(menuItem("Refresh") {
+            mutate(
+                config,
+                "Refresh $index",
+                "POST",
+                "/$index/_refresh",
+                refresh = emptyList(),
+                successMessage = "Index refreshed",
+            )
+        })
+        menu.add(menuItem("Flush Index") {
+            mutate(
+                config,
+                "Flush $index",
+                "POST",
+                "/$index/_flush",
+                refresh = emptyList(),
+                successMessage = "Index flushed",
+            )
+        })
+        menu.add(menuItem("Force Merge...") { forceMerge(config, index) })
+        menu.add(menuItem("Update Mapping...") { updateMapping(config, index) })
+        menu.addSeparator()
+        menu.add(menuItem("Close Index") { closeIndex(config, index) })
+        menu.add(menuItem("Delete...", KeyStroke.getKeyStroke("control BACK_SPACE")) {
+            deleteIndex(config, index)
+        })
+    }
+
+    private fun buildAliasMenu(menu: JPopupMenu, config: ConnectionConfig, alias: String) {
+        menu.add(menuItem("Open in Data Browser", KeyStroke.getKeyStroke("control DOWN")) {
+            openDataBrowser(config, alias)
+        })
+        menu.add(menuItem("Open in REST Console", KeyStroke.getKeyStroke("control ENTER")) {
+            openConsole(
+                config,
+                SavedRequest(
+                    connectionId = config.id,
+                    name = alias,
+                    method = "GET",
+                    path = "/$alias/_search",
+                ),
+            )
+        })
+        menu.addSeparator()
+        menu.add(menuItem("Alias Info") {
+            showJson(config, "Alias Info — $alias", "/_alias/$alias")
+        })
+        menu.add(menuItem("Delete Alias...") { deleteAlias(config, alias) })
+    }
+
+    private fun showJson(config: ConnectionConfig, title: String, path: String) {
+        val secret = SecretStore.get(config.id)
+        AppExecutorUtil.getAppExecutorService().execute {
+            val result = runCatching { EsClient(config, secret).get(path) }
+            invokeLater {
+                result.onSuccess { response ->
+                    if (response.isSuccess) {
+                        JsonViewerDialog(project, title, response.body).show()
+                    } else {
+                        EsNotifications.error(
+                            project,
+                            title,
+                            "HTTP ${response.status}: ${response.body.take(500)}",
+                        )
+                    }
+                }.onFailure { error ->
+                    EsNotifications.error(project, title, error.message ?: error.javaClass.simpleName)
+                }
+            }
+        }
+    }
+
+    private fun mutate(
+        config: ConnectionConfig,
+        title: String,
+        method: String,
+        path: String,
+        body: String? = null,
+        headers: Map<String, String> = emptyMap(),
+        refresh: List<Category> = listOf(Category.INDICES, Category.ALIASES),
+        successMessage: String? = null,
+    ) {
+        val secret = SecretStore.get(config.id)
+        AppExecutorUtil.getAppExecutorService().execute {
+            val result = runCatching {
+                EsClient(config, secret).request(method, path, body, headers = headers)
+            }
+            invokeLater {
+                result.onSuccess { response ->
+                    if (response.isSuccess) {
+                        EsNotifications.info(
+                            project,
+                            title,
+                            successMessage ?: "HTTP ${response.status}",
+                        )
+                        refresh.forEach { refreshCategory(config.id, it) }
+                    } else {
+                        EsNotifications.error(
+                            project,
+                            title,
+                            "HTTP ${response.status}: ${response.body.take(500)}",
+                        )
+                    }
+                }.onFailure { error ->
+                    EsNotifications.error(project, title, error.message ?: error.javaClass.simpleName)
+                }
+            }
+        }
+    }
+
+    private fun openDataBrowser(config: ConnectionConfig, index: String) {
+        DataBrowserDialog(project, config, SecretStore.get(config.id), index).show()
+    }
+
+    private fun createIndex(config: ConnectionConfig) {
+        val name = Messages.showInputDialog(
+            project,
+            "Index name:",
+            "New Index",
+            null,
+            "",
+            null,
+        )?.trim().orEmpty()
+        if (name.isEmpty()) return
+        mutate(
+            config,
+            "New Index",
+            "PUT",
+            "/$name",
+            successMessage = "Index \"$name\" created",
+        )
+    }
+
+    private fun importData(config: ConnectionConfig, index: String) {
+        val chooser = JFileChooser().apply { dialogTitle = "Import Data into $index" }
+        if (chooser.showOpenDialog(null) != JFileChooser.APPROVE_OPTION) return
+        val file = chooser.selectedFile ?: return
+
+        AppExecutorUtil.getAppExecutorService().execute {
+            val result = runCatching { Files.readString(file.toPath()) }
+            invokeLater {
+                result.onSuccess { content ->
+                    mutate(
+                        config,
+                        "Import into $index",
+                        "POST",
+                        "/_bulk",
+                        toBulkBody(index, content),
+                        headers = mapOf("Content-Type" to "application/x-ndjson"),
+                        refresh = listOf(Category.INDICES),
+                        successMessage = "Bulk import sent",
+                    )
+                }.onFailure { error ->
+                    EsNotifications.error(project, "Import", error.message ?: error.javaClass.simpleName)
+                }
+            }
+        }
+    }
+
+    private fun toBulkBody(index: String, content: String): String {
+        val trimmed = content.trim()
+        if (!trimmed.startsWith("[")) {
+            return if (content.endsWith("\n")) content else "$content\n"
+        }
+
+        val array = JsonParser.parseString(trimmed).asJsonArray
+        val gson = Gson()
+        return buildString {
+            array.forEach { document ->
+                append("{\"index\":{\"_index\":\"").append(index).append("\"}}\n")
+                append(gson.toJson(document)).append('\n')
+            }
+        }
+    }
+
+    private fun copyIndex(config: ConnectionConfig, source: String) {
+        val destination = Messages.showInputDialog(
+            project,
+            "Destination index:",
+            "Copy Index",
+            null,
+            "${source}_copy",
+            null,
+        )?.trim().orEmpty()
+        if (destination.isEmpty()) return
+
+        mutate(
+            config,
+            "Copy Index",
+            "POST",
+            "/_reindex?wait_for_completion=false",
+            body = """{"source":{"index":"$source"},"dest":{"index":"$destination"}}""",
+            successMessage = "Reindex from \"$source\" to \"$destination\" started",
+        )
+    }
+
+    private fun manageAliases(config: ConnectionConfig, index: String) {
+        ManageAliasesDialog(
+            project,
+            config,
+            SecretStore.get(config.id),
+            index,
+        ) { refreshCategory(config.id, Category.ALIASES) }.show()
+    }
+
+    private fun forceMerge(config: ConnectionConfig, index: String) {
+        val segments = Messages.showInputDialog(
+            project,
+            "Max segments:",
+            "Force Merge — $index",
+            null,
+            "1",
+            null,
+        )?.trim()?.toIntOrNull()?.coerceAtLeast(1) ?: 1
+
+        mutate(
+            config,
+            "Force Merge",
+            "POST",
+            "/$index/_forcemerge?max_num_segments=$segments&wait_for_completion=false",
+            successMessage = "Force merge started",
+        )
+    }
+
+    private fun updateMapping(config: ConnectionConfig, index: String) {
+        val body = Messages.showMultilineInputDialog(
+            project,
+            "Mapping JSON:",
+            "Update Mapping — $index",
+            "{\n  \"properties\": {}\n}",
+            null,
+            null,
+        ) ?: return
+
+        mutate(
+            config,
+            "Update Mapping",
+            "PUT",
+            "/$index/_mapping",
+            body,
+            successMessage = "Mapping updated",
+        )
+    }
+
+    private fun closeIndex(config: ConnectionConfig, index: String) {
+        val answer = Messages.showYesNoDialog(
+            project,
+            "Close index \"$index\"?",
+            "Close Index",
+            Messages.getQuestionIcon(),
+        )
+        if (answer != Messages.YES) return
+        mutate(config, "Close Index", "POST", "/$index/_close", successMessage = "Index closed")
+    }
+
+    private fun deleteIndex(config: ConnectionConfig, index: String) {
+        val answer = Messages.showYesNoDialog(
+            project,
+            "Delete index \"$index\"? This cannot be undone.",
+            "Delete Index",
+            Messages.getWarningIcon(),
+        )
+        if (answer != Messages.YES) return
+        mutate(config, "Delete Index", "DELETE", "/$index", successMessage = "Index deleted")
+    }
+
+    private fun deleteAlias(config: ConnectionConfig, alias: String) {
+        val answer = Messages.showYesNoDialog(
+            project,
+            "Delete alias \"$alias\" from all indices?",
+            "Delete Alias",
+            Messages.getQuestionIcon(),
+        )
+        if (answer != Messages.YES) return
+
+        val secret = SecretStore.get(config.id)
+        AppExecutorUtil.getAppExecutorService().execute {
+            val result = runCatching {
+                val client = EsClient(config, secret)
+                val info = client.get("/_alias/$alias")
+                if (!info.isSuccess) {
+                    throw EsException("HTTP ${info.status}: ${info.body.take(300)}", info.status)
+                }
+                val indices = JsonParser.parseString(info.body).asJsonObject.keySet().joinToString(",")
+                if (indices.isEmpty()) throw EsException("Alias \"$alias\" not found")
+                client.request("DELETE", "/$indices/_alias/$alias")
+            }
+            invokeLater {
+                result.onSuccess { response ->
+                    if (response.isSuccess) {
+                        EsNotifications.info(project, "Delete Alias", "Alias \"$alias\" deleted")
+                        refreshCategory(config.id, Category.ALIASES)
+                    } else {
+                        EsNotifications.error(
+                            project,
+                            "Delete Alias",
+                            "HTTP ${response.status}: ${response.body.take(500)}",
+                        )
+                    }
+                }.onFailure { error ->
+                    EsNotifications.error(project, "Delete Alias", error.message ?: error.javaClass.simpleName)
+                }
+            }
+        }
+    }
 
     private fun selectedConfigNode(): ConfigNode? {
         var current = tree.selectionPath?.lastPathComponent as? DefaultMutableTreeNode ?: return null
