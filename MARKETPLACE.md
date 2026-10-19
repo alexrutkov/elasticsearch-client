@@ -91,6 +91,27 @@ Recommended size: 1280×800 or larger, PNG.
 Add a short caption to each screenshot in Marketplace. The first screenshot is used as the
 plugin card image, so make it representative.
 
+### If an existing screenshot is smaller than 1200×760
+
+Do not stretch it to 1200×760: the aspect ratio changes and the UI becomes distorted.
+Create a 1200×760 canvas and place the screenshot proportionally in the center instead.
+
+With ImageMagick:
+
+```powershell
+magick input.png -resize x700 -background "#1E1F22" -gravity center -extent 1200x760 output.png
+```
+
+With the local PowerShell helper (no external tools):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\make-marketplace-screenshot.ps1 -InputPath .\input.png
+```
+
+The helper scales the source to fit the canvas height, adds a dark background and a subtle
+shadow, and writes a 1200×760 PNG. A native capture at 1200×760 or larger is still sharper.
+
+
 ## 6. Build And Verify
 
 ```powershell
