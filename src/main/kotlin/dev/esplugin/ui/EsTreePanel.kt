@@ -9,6 +9,7 @@ import com.intellij.openapi.actionSystem.ActionToolbar
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.ui.SimpleToolWindowPanel
@@ -18,6 +19,7 @@ import com.intellij.util.concurrency.AppExecutorUtil
 import dev.esplugin.client.EsClient
 import dev.esplugin.client.EsException
 import dev.esplugin.client.EsResponse
+import dev.esplugin.browser.DataBrowserVirtualFile
 import dev.esplugin.console.ConsoleStore
 import dev.esplugin.console.EsConsoleDialog
 import dev.esplugin.console.SavedRequest
@@ -260,9 +262,15 @@ class EsTreePanel(private val project: Project) : SimpleToolWindowPanel(true, tr
         tree.addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(event: MouseEvent) {
                 if (event.clickCount == 2 && SwingUtilities.isLeftMouseButton(event)) {
-                    val node = tree.getPathForLocation(event.x, event.y)?.lastPathComponent as? ItemNode
-                        ?: return
-                    openItem(node)
+                    val node = tree.getPathForLocation(event.x, event.y)?.lastPathComponent ?: return
+                    if (node is ItemNode && node.kind == ItemKind.PLAIN) {
+                        val category = (node.parent as? CategoryNode)?.category
+                        if (category == Category.INDICES || category == Category.ALIASES) {
+                            findConfigNode(node)?.let { openDataBrowserTab(it.config, node.title) }
+                            return
+                        }
+                    }
+                    if (node is ItemNode) openItem(node)
                 }
             }
 
@@ -484,7 +492,16 @@ class EsTreePanel(private val project: Project) : SimpleToolWindowPanel(true, tr
     }
 
     private fun openDataBrowser(config: ConnectionConfig, index: String) {
-        DataBrowserDialog(project, config, SecretStore.get(config.id), index).show()
+        openDataBrowserTab(config, index)
+    }
+
+    private fun openDataBrowserTab(config: ConnectionConfig, index: String) {
+        val manager = FileEditorManager.getInstance(project)
+        val existing = manager.openFiles.firstOrNull {
+            it is DataBrowserVirtualFile && it.connectionId == config.id && it.index == index
+        }
+        val file = existing ?: DataBrowserVirtualFile(config.id, index, config.name)
+        manager.openFile(file, true)
     }
 
     private fun createIndex(config: ConnectionConfig) {

@@ -14,7 +14,9 @@ IntelliJ Platform SDK. It is not affiliated with Elastic or with any commercial 
 - Cluster health indicator (green / yellow / red).
 - REST console: method, path, headers, body, formatted JSON response, Ctrl+Enter.
 - Save consoles, save query bodies, request history (last 100 per connection).
-- Read-only data browser: filter, pagination and a document viewer.
+- Data browser in an editor tab: double-click an index or alias, or use the context menu.
+  Columns are built from the mapping, so every field is visible; arrays are rendered
+  as `[a, b]`, nested fields as `parent.child`, with pagination, filter and sorting.
 - Index context menu: data browser, REST console, info, stats, new index, import,
   copy/reindex, manage aliases, refresh, flush, force merge, update mapping, close, delete.
 - Alias context menu: data browser, REST console, alias info, delete alias.
@@ -44,7 +46,7 @@ Build the installable zip:
 .\gradlew.bat buildPlugin
 ```
 
-The result is `build/distributions/elasticsearch-client-0.3.0.zip`.
+The result is `build/distributions/elasticsearch-client-0.4.0.zip`.
 Install it with `Settings | Plugins | Install Plugin from Disk...`.
 
 Run a sandbox IDE with the plugin:

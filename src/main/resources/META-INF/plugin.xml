@@ -14,6 +14,12 @@
     ]]></description>
 
     <change-notes><![CDATA[
+    <h3>0.4.0</h3>
+    <ul>
+        <li>Double-click an index or alias to open the data browser in an editor tab.</li>
+        <li>Every mapped field is shown as a table column, including nested fields.</li>
+        <li>Array values, pagination, Lucene filter, column sorting and a document JSON viewer.</li>
+    </ul>
     <h3>0.3.0</h3>
     <ul>
         <li>Full context menu for indices: data browser, REST console, info, stats, create, import, copy, aliases, refresh, flush, force merge, mapping, close, delete.</li>
@@ -52,5 +58,7 @@
                                  displayName="Elasticsearch Client"/>
 
         <notificationGroup id="Elasticsearch Client" displayType="BALLOON"/>
+
+        <fileEditorProvider implementation="dev.esplugin.browser.DataBrowserEditorProvider"/>
     </extensions>
 </idea-plugin>
