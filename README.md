@@ -38,7 +38,7 @@ Build the installable zip:
 .\gradlew.bat buildPlugin
 ```
 
-The result is `build/distributions/elasticsearch-client-0.1.0.zip`.
+The result is `build/distributions/elasticsearch-client-0.1.1.zip`.
 Install it with `Settings | Plugins | Install Plugin from Disk...`.
 
 Run a sandbox IDE with the plugin:
