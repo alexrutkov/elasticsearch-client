@@ -299,8 +299,10 @@ class EsTreePanel(private val project: Project) : SimpleToolWindowPanel(true, tr
 
                     is CategoryNode -> {
                         when (node.category) {
-                            Category.CONSOLES, Category.QUERIES ->
+                            Category.CONSOLES, Category.QUERIES -> {
                                 menu.add(menuItem("New Console") { openConsole(node.config) })
+                                menu.addSeparator()
+                            }
 
                             Category.REQUESTS -> {
                                 menu.add(menuItem("New Console") { openConsole(node.config) })
@@ -308,14 +310,16 @@ class EsTreePanel(private val project: Project) : SimpleToolWindowPanel(true, tr
                                     ConsoleStore.getInstance().clearHistory(node.config.id)
                                     refreshCategory(node.config.id, Category.REQUESTS)
                                 })
+                                menu.addSeparator()
                             }
 
-                            Category.INDICES ->
+                            Category.INDICES -> {
                                 menu.add(menuItem("New Index...") { createIndex(node.config) })
+                                menu.addSeparator()
+                            }
 
                             else -> Unit
                         }
-                        menu.addSeparator()
                         menu.add(menuItem("Refresh") {
                             if (node.category.isLocal) {
                                 populateLocalCategory(node)
@@ -511,16 +515,53 @@ class EsTreePanel(private val project: Project) : SimpleToolWindowPanel(true, tr
             val result = runCatching { Files.readString(file.toPath()) }
             invokeLater {
                 result.onSuccess { content ->
-                    mutate(
-                        config,
-                        "Import into $index",
-                        "POST",
-                        "/_bulk",
-                        toBulkBody(index, content),
-                        headers = mapOf("Content-Type" to "application/x-ndjson"),
-                        refresh = listOf(Category.INDICES),
-                        successMessage = "Bulk import sent",
-                    )
+                    val bulk = toBulkBody(index, content)
+                    AppExecutorUtil.getAppExecutorService().execute {
+                        val response = runCatching {
+                            EsClient(config, SecretStore.get(config.id)).request(
+                                "POST",
+                                "/_bulk",
+                                bulk,
+                                headers = mapOf("Content-Type" to "application/x-ndjson"),
+                            )
+                        }
+                        invokeLater {
+                            response.onSuccess { result ->
+                                if (!result.isSuccess) {
+                                    EsNotifications.error(
+                                        project,
+                                        "Import into $index",
+                                        "HTTP ${result.status}: ${result.body.take(500)}",
+                                    )
+                                } else {
+                                    val hasErrors = runCatching {
+                                        JsonParser.parseString(result.body).asJsonObject
+                                            .get("errors")?.asBoolean
+                                    }.getOrNull() == true
+                                    if (hasErrors) {
+                                        EsNotifications.error(
+                                            project,
+                                            "Import into $index",
+                                            "Bulk request finished with errors: ${result.body.take(500)}",
+                                        )
+                                    } else {
+                                        EsNotifications.info(
+                                            project,
+                                            "Import into $index",
+                                            "Bulk import completed",
+                                        )
+                                    }
+                                    refreshCategory(config.id, Category.INDICES)
+                                }
+                            }.onFailure { error ->
+                                EsNotifications.error(
+                                    project,
+                                    "Import into $index",
+                                    error.message ?: error.javaClass.simpleName,
+                                )
+                            }
+                        }
+                    }
                 }.onFailure { error ->
                     EsNotifications.error(project, "Import", error.message ?: error.javaClass.simpleName)
                 }
@@ -529,9 +570,10 @@ class EsTreePanel(private val project: Project) : SimpleToolWindowPanel(true, tr
     }
 
     private fun toBulkBody(index: String, content: String): String {
-        val trimmed = content.trim()
+        val normalized = content.removePrefix("\uFEFF")
+        val trimmed = normalized.trim()
         if (!trimmed.startsWith("[")) {
-            return if (content.endsWith("\n")) content else "$content\n"
+            return if (normalized.endsWith("\n")) normalized else "$normalized\n"
         }
 
         val array = JsonParser.parseString(trimmed).asJsonArray
