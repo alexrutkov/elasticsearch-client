@@ -1,19 +1,29 @@
 <idea-plugin>
     <id>dev.esplugin.elasticsearch</id>
     <name>Elasticsearch Client</name>
-    <vendor url="https://github.com/">Local build</vendor>
+    <vendor>Alexander Rutkovskiy</vendor>
 
     <description><![CDATA[
-    <p>Connect to Elasticsearch or OpenSearch clusters from IntelliJ IDEA.</p>
+    <p><b>Elasticsearch Client</b> is a free, open-source plugin for working with
+    Elasticsearch and OpenSearch clusters directly from IntelliJ IDEA.</p>
     <ul>
-        <li>Multiple connections with Basic, API key and Bearer authentication</li>
-        <li>Browse indices, aliases, data streams and nodes</li>
-        <li>Cluster health and connection diagnostics</li>
+        <li>Multiple connections with Basic, API key and Bearer authentication; secrets are stored in the IDE PasswordSafe.</li>
+        <li>Cluster tree with indices, aliases, data streams and nodes, plus a health indicator.</li>
+        <li>REST console in an editor tab with JSON syntax highlighting, line numbers, auto-indent, request history and saved queries.</li>
+        <li>Data browser in an editor tab with all mapped fields as columns, nested fields, arrays, pagination and Lucene filter.</li>
+        <li>Index and alias actions: info, stats, create, import, copy/reindex, aliases, refresh, flush, force merge, mapping, close and delete.</li>
+        <li>Settings page under Settings | Tools | Elasticsearch Client.</li>
     </ul>
-    <p>Open source plugin built with the IntelliJ Platform SDK.</p>
+    <p>No telemetry. Connection settings stay local, and passwords are kept in the IDE credential store.</p>
+    <p>Requires IntelliJ IDEA 2026.2 or newer. Licensed under Apache-2.0.
+    Not affiliated with Elastic or JetBrains.</p>
     ]]></description>
 
     <change-notes><![CDATA[
+    <h3>0.6.1</h3>
+    <ul>
+        <li>Marketplace metadata: vendor, description and plugin icon.</li>
+    </ul>
     <h3>0.6.0</h3>
     <ul>
         <li>JSON syntax highlighting in the console request editor, using the IDE color scheme.</li>

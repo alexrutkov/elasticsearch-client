@@ -50,7 +50,7 @@ Build the installable zip:
 .\gradlew.bat buildPlugin
 ```
 
-The result is `build/distributions/elasticsearch-client-0.6.0.zip`.
+The result is `build/distributions/elasticsearch-client-0.6.1.zip`.
 Install it with `Settings | Plugins | Install Plugin from Disk...`.
 
 Run a sandbox IDE with the plugin:
@@ -89,6 +89,14 @@ src/main/kotlin/dev/esplugin/
 - M3: data browser (documents table, CRUD, export/import).
 - M4: custom CA/client certificates, SSH tunnel, AWS SigV4.
 - M5: KQL / Painless / Query DSL completion.
+
+## Publishing
+
+See [MARKETPLACE.md](MARKETPLACE.md) for the vendor form values, listing description,
+screenshots checklist and the upload package.
+
+Before publishing, create a public source repository and use its URL in the Marketplace
+`Source code` field. The plugin is licensed under Apache-2.0.
 
 ## License
 
