@@ -113,9 +113,10 @@ class DataBrowserEditor(
         }
 
         val tableScroll = JBScrollPane(table)
-        tableScroll.setRowHeaderView(RowNumberTable(table))
+        val rowNumbers = RowNumberTable(table)
+        rowNumbers.border = JBUI.Borders.customLineRight(JBColor.border())
+        tableScroll.setRowHeaderView(rowNumbers)
         tableScroll.rowHeader.background = UIUtil.getTableBackground()
-        tableScroll.rowHeader.border = JBUI.Borders.customLineRight(JBColor.border())
 
         rootPanel.border = JBUI.Borders.empty(8)
         rootPanel.add(filterRow, BorderLayout.NORTH)

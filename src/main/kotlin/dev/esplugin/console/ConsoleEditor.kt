@@ -2,6 +2,7 @@ package dev.esplugin.console
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.ex.EditorEx
@@ -159,8 +160,10 @@ class ConsoleEditor(
         val formatted = ConsoleRequestParser.format(
             request.copy(body = ConsoleRequestParser.prettyBody(request.body)),
         )
-        document.setText(formatted)
-        requestEditor.caretModel.moveToOffset(0)
+        WriteCommandAction.runWriteCommandAction(project) {
+            document.setText(formatted)
+            requestEditor.caretModel.moveToOffset(0)
+        }
         statusLabel.text = "Formatted"
     }
 
