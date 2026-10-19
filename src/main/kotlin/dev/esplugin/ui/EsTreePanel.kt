@@ -16,6 +16,7 @@ import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.treeStructure.Tree
 import com.intellij.util.concurrency.AppExecutorUtil
+import com.intellij.util.ui.JBUI
 import dev.esplugin.client.EsClient
 import dev.esplugin.client.EsException
 import dev.esplugin.client.EsResponse
@@ -78,7 +79,9 @@ class EsTreePanel(private val project: Project) : SimpleToolWindowPanel(true, tr
         toolbar = ActionManager.getInstance().createActionToolbar("ElasticsearchClient", group, true)
         toolbar.targetComponent = tree
         setToolbar(toolbar.component)
-        setContent(ScrollPaneFactory.createScrollPane(tree))
+        val treeScroll = ScrollPaneFactory.createScrollPane(tree)
+        treeScroll.setViewportBorder(JBUI.Borders.empty(4, 6, 4, 6))
+        setContent(treeScroll)
 
         tree.addTreeSelectionListener { toolbar.updateActionsAsync() }
         installPopupMenu()

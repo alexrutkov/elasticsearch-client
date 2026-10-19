@@ -31,6 +31,8 @@ IntelliJ Platform SDK. It is not affiliated with Elastic or with any commercial 
 
 - IntelliJ IDEA 2026.2 (build 262) or newer.
 - JDK 21 to run Gradle (JetBrains Runtime from IDEA 2025.2 works).
+  Do not run Gradle 8.14.4 on Java 25: use the JBR 21 above, otherwise Gradle
+  fails before the build starts. The build pins Java and Kotlin bytecode to 21.
 - IntelliJ Platform Gradle Plugin 2.10.5, Gradle 8.14.x.
 
 Gradle 9 is not used here on purpose: in the development sandbox it fails on the project

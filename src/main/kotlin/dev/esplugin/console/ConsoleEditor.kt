@@ -2,6 +2,7 @@ package dev.esplugin.console
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.ex.EditorEx
@@ -14,10 +15,9 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.util.UserDataHolderBase
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.OnePixelSplitter
 import com.intellij.ui.components.JBLabel
-import com.intellij.ui.components.JBScrollPane
-import com.intellij.ui.components.JBTextArea
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.util.ui.JBUI
 import dev.esplugin.client.EsClient
@@ -27,7 +27,6 @@ import dev.esplugin.settings.SecretStore
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.FlowLayout
-import java.awt.Font
 import java.awt.event.ActionEvent
 import java.beans.PropertyChangeListener
 import java.util.Locale
@@ -46,12 +45,10 @@ class ConsoleEditor(
         .createDocument(ConsoleRequestParser.format(file.initial))
     private val requestEditor: Editor = EditorFactory.getInstance()
         .createEditor(document, project, PlainTextFileType.INSTANCE, false)
-    private val responseArea = JBTextArea().apply {
-        isEditable = false
-        lineWrap = false
-        font = Font("JetBrains Mono", Font.PLAIN, JBUI.scale(12))
-        text = "Response will appear here"
-    }
+    private val responseDocument = EditorFactory.getInstance()
+        .createDocument("Response will appear here")
+    private val responseEditor: Editor = EditorFactory.getInstance()
+        .createEditor(responseDocument, project, PlainTextFileType.INSTANCE, true)
     private val statusLabel = JBLabel("Ready")
     private val executeButton = JButton("Execute")
     private val formatButton = JButton("Format")
@@ -67,6 +64,9 @@ class ConsoleEditor(
         installHighlighter()
         requestEditor.settings.isLineNumbersShown = true
         requestEditor.settings.isIndentGuidesShown = true
+        responseEditor.settings.isLineNumbersShown = true
+        responseEditor.settings.isIndentGuidesShown = true
+        responseEditor.settings.isUseSoftWraps = false
         installEnterHandler()
 
         rootPanel.registerKeyboardAction(
@@ -95,12 +95,13 @@ class ConsoleEditor(
             add(requestEditor.component, BorderLayout.CENTER)
         }
         val responsePanel = JPanel(BorderLayout()).apply {
-            add(JBScrollPane(responseArea), BorderLayout.CENTER)
+            add(responseEditor.component, BorderLayout.CENTER)
         }
 
         splitter.firstComponent = requestPanel
         splitter.secondComponent = responsePanel
 
+        rootPanel.border = JBUI.Borders.empty(8)
         rootPanel.add(toolbar, BorderLayout.NORTH)
         rootPanel.add(splitter, BorderLayout.CENTER)
         rootPanel.preferredSize = Dimension(1100, 650)
@@ -159,8 +160,10 @@ class ConsoleEditor(
         val formatted = ConsoleRequestParser.format(
             request.copy(body = ConsoleRequestParser.prettyBody(request.body)),
         )
-        document.setText(formatted)
-        requestEditor.caretModel.moveToOffset(0)
+        WriteCommandAction.runWriteCommandAction(project) {
+            document.setText(formatted)
+            requestEditor.caretModel.moveToOffset(0)
+        }
         statusLabel.text = "Formatted"
     }
 
@@ -215,7 +218,7 @@ class ConsoleEditor(
                 result.onSuccess { response ->
                     showResponse(response, elapsed)
                 }.onFailure { error ->
-                    responseArea.text = error.stackTraceToString()
+                    setResponseText(error.stackTraceToString())
                     statusLabel.text = "Failed: ${error.message ?: error.javaClass.simpleName}"
                 }
             }, ModalityState.any())
@@ -223,10 +226,17 @@ class ConsoleEditor(
     }
 
     private fun showResponse(response: EsResponse, elapsed: Long) {
-        responseArea.text = ConsoleUtils.prettyJson(response.body).ifBlank { "<empty response>" }
-        responseArea.caretPosition = 0
+        setResponseText(ConsoleUtils.prettyJson(response.body).ifBlank { "<empty response>" })
         val size = response.body.toByteArray(Charsets.UTF_8).size
         statusLabel.text = "${response.status} ${reason(response.status)} · $elapsed ms · ${formatSize(size)}"
+    }
+
+    private fun setResponseText(text: String) {
+        ApplicationManager.getApplication().runWriteAction {
+            responseDocument.setText(text)
+        }
+        responseEditor.caretModel.moveToOffset(0)
+        responseEditor.scrollingModel.scrollVertically(0)
     }
 
     private fun saveConsole() {
@@ -328,6 +338,8 @@ class ConsoleEditor(
 
     override fun getComponent(): JComponent = rootPanel
 
+    override fun getFile(): VirtualFile = file
+
     override fun getPreferredFocusedComponent(): JComponent = requestEditor.contentComponent
 
     override fun getName(): String = "Console"
@@ -352,5 +364,6 @@ class ConsoleEditor(
         if (disposed) return
         disposed = true
         EditorFactory.getInstance().releaseEditor(requestEditor)
+        EditorFactory.getInstance().releaseEditor(responseEditor)
     }
 }

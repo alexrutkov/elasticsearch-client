@@ -8,11 +8,15 @@ import com.intellij.openapi.fileEditor.FileEditorState
 import com.intellij.openapi.fileEditor.FileEditorStateLevel
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.UserDataHolderBase
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
+import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBTextField
 import com.intellij.ui.table.JBTable
 import com.intellij.util.concurrency.AppExecutorUtil
+import com.intellij.util.ui.JBUI
+import com.intellij.util.ui.UIUtil
 import dev.esplugin.client.EsClient
 import dev.esplugin.console.ConsoleTabs
 import dev.esplugin.console.SavedRequest
@@ -73,7 +77,8 @@ class DataBrowserEditor(
         table.addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(event: MouseEvent) {
                 if (event.clickCount == 2 && table.selectedRow >= 0) {
-                    val hit = hits.getOrNull(table.selectedRow) ?: return
+                    val modelRow = table.convertRowIndexToModel(table.selectedRow)
+                    val hit = hits.getOrNull(modelRow) ?: return
                     JsonViewerDialog(
                         project,
                         "Document — ${file.index}",
@@ -107,8 +112,15 @@ class DataBrowserEditor(
             add(statusLabel)
         }
 
+        val tableScroll = JBScrollPane(table)
+        val rowNumbers = RowNumberTable(table)
+        rowNumbers.border = JBUI.Borders.customLineRight(JBColor.border())
+        tableScroll.setRowHeaderView(rowNumbers)
+        tableScroll.rowHeader.background = UIUtil.getTableBackground()
+
+        rootPanel.border = JBUI.Borders.empty(8)
         rootPanel.add(filterRow, BorderLayout.NORTH)
-        rootPanel.add(JBScrollPane(table), BorderLayout.CENTER)
+        rootPanel.add(tableScroll, BorderLayout.CENTER)
         rootPanel.add(navigation, BorderLayout.SOUTH)
         rootPanel.preferredSize = Dimension(1100, 650)
     }
@@ -233,6 +245,8 @@ class DataBrowserEditor(
     }
 
     override fun getComponent(): JComponent = rootPanel
+
+    override fun getFile(): VirtualFile = file
 
     override fun getPreferredFocusedComponent(): JComponent = filterField
 

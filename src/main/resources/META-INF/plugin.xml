@@ -20,6 +20,21 @@
     ]]></description>
 
     <change-notes><![CDATA[
+    <h3>0.6.4</h3>
+    <ul>
+        <li>Fixed a write-access exception when pressing Format in the REST console.</li>
+        <li>The Format action now updates the document inside a write command, so it is also undoable.</li>
+    </ul>
+    <h3>0.6.3</h3>
+    <ul>
+        <li>Fixed a crash when opening the data browser because a JViewport border was set directly.</li>
+        <li>The row-number gutter border is now applied to the row-number table itself.</li>
+    </ul>
+    <h3>0.6.2</h3>
+    <ul>
+        <li>Fixed FileEditor.getFile() deprecation errors when opening console and data browser tabs.</li>
+        <li>Both editor tabs now explicitly return their virtual file.</li>
+    </ul>
     <h3>0.6.1</h3>
     <ul>
         <li>Marketplace metadata: vendor, description and plugin icon.</li>

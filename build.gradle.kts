@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.gradle.api.tasks.compile.JavaCompile
 
 plugins {
     kotlin("jvm") version "2.4.21"
@@ -6,7 +7,7 @@ plugins {
 }
 
 group = "dev.esplugin"
-version = "0.6.1"
+version = "0.6.4"
 
 val idePath = providers.gradleProperty("idePath")
     .getOrElse("C:/Users/rutkovskiy_ayu/AppData/Local/Programs/IntelliJ IDEA")
@@ -38,6 +39,17 @@ kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_21)
     }
+}
+
+// Keep Java and Kotlin bytecode on the same target even when Gradle itself
+// runs on a newer JBR (for example Java 25 from IntelliJ IDEA 2026.2).
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.release.set(21)
 }
 
 intellijPlatform {
