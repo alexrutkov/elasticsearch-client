@@ -1,6 +1,8 @@
 package dev.esplugin.settings
 
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogWrapper
@@ -135,15 +137,23 @@ class ConnectionDialog(
     }
 
     private fun testConnection() {
-        val config = collectConfig()
+        val config = collectConfig().also {
+            // Keep the dialog responsive even if the cluster is unreachable.
+            it.connectTimeoutSeconds = it.connectTimeoutSeconds.coerceAtMost(5)
+            it.requestTimeoutSeconds = it.requestTimeoutSeconds.coerceAtMost(15)
+        }
         val typedSecret = String(secretField.password)
         val secret = if (typedSecret.isNotEmpty()) typedSecret else SecretStore.get(original.id)
 
         testButton.isEnabled = false
         testResult.text = "Connecting..."
+        LOG.info("Testing Elasticsearch connection to ${config.url}")
         AppExecutorUtil.getAppExecutorService().execute {
             val result = runCatching { EsClient(config, secret).checkConnection() }
-            ApplicationManager.getApplication().invokeLater {
+            LOG.info("Connection test finished: ${if (result.isSuccess) "success" else "failure"}")
+            // The dialog is modal: without ModalityState.any() the callback would be queued
+            // behind the dialog and the label would stay at "Connecting..." forever.
+            ApplicationManager.getApplication().invokeLater({
                 testButton.isEnabled = true
                 result.onSuccess { info ->
                     val health = info.health?.status?.let { " / $it" }.orEmpty()
@@ -152,7 +162,11 @@ class ConnectionDialog(
                 }.onFailure { error ->
                     testResult.text = "Failed: ${error.message ?: error.javaClass.simpleName}"
                 }
-            }
+            }, ModalityState.any())
         }
+    }
+
+    private companion object {
+        private val LOG = Logger.getInstance(ConnectionDialog::class.java)
     }
 }

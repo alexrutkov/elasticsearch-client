@@ -7,6 +7,7 @@ import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionToolbar
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.ui.SimpleToolWindowPanel
@@ -179,9 +180,9 @@ class EsTreePanel(private val project: Project) : SimpleToolWindowPanel(true, tr
 
     private fun invokeLater(action: () -> Unit) {
         if (project.isDisposed) return
-        ApplicationManager.getApplication().invokeLater {
+        ApplicationManager.getApplication().invokeLater({
             if (!project.isDisposed) action()
-        }
+        }, ModalityState.any())
     }
 
     private fun fetchCategory(
